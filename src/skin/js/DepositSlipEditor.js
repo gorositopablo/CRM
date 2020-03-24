@@ -8,13 +8,13 @@ function initPaymentTable()
       render: function(data, type, full, meta) {
         var familyName = data ? data : i18next.t('Anonymous');
         return '<a href=\'PledgeEditor.php?linkBack=DepositSlipEditor.php?DepositSlipID=' + depositSlipID +
-            '&GroupKey=' + full.Groupkey + '\'><span class="fa-stack"><i class="fa fa-square fa-stack-2x"></i><i class="fa '+  (isDepositClosed ? "fa-search-plus": "fa-pencil" ) +' fa-stack-1x fa-inverse"></i></span></a>' + familyName;
+            '&GroupKey=' + full.GroupKey + '\'><span class="fa-stack"><i class="fa fa-square fa-stack-2x"></i><i class="fa '+  (isDepositClosed ? "fa-search-plus": "fa-pencil" ) +' fa-stack-1x fa-inverse"></i></span></a>' + familyName;
       }
     },
     {
       width: 'auto',
       title:i18next.t('Check Number'),
-      data:'Checkno'
+      data:'CheckNo'
     },
     {
       width: 'auto',
@@ -43,21 +43,18 @@ function initPaymentTable()
     );
   }
 
-
-  dataT = $("#paymentsTable").DataTable({
+ var dataTableConfig = {
     ajax:{
       url :window.CRM.root+"/api/deposits/"+depositSlipID+"/pledges",
       dataSrc:''
     },
-      "language": {
-          "url": window.CRM.plugin.dataTable.language.url
-      },
     columns: colDef,
-    responsive: true,
     "createdRow" : function (row,data,index) {
       $(row).addClass("paymentRow");
     }
-  });
+  }
+  $.extend(dataTableConfig, window.CRM.plugin.dataTable);
+  dataT = $("#paymentsTable").DataTable(dataTableConfig);
   dataT.on( 'xhr', function () {
    // var json = dataT.ajax.json();
    // console.log( json );
@@ -75,7 +72,7 @@ function initDepositSlipEditor()
             '</tr>' +
             '<tr>' +
             '<td>Fiscal Year:</td>' +
-            '<td>' + d.Fyid + '</td>' +
+            '<td>' + d.FyId + '</td>' +
             '</tr>' +
             '<tr>' +
             '<td>Fund(s):</td>' +

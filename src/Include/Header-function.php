@@ -15,27 +15,11 @@ require_once 'Functions.php';
 
 use ChurchCRM\Service\SystemService;
 use ChurchCRM\dto\SystemURLs;
-use ChurchCRM\Service\NotificationService;
 use ChurchCRM\dto\SystemConfig;
-use ChurchCRM\GroupQuery;
-use Propel\Runtime\ActiveQuery\Criteria;
-use ChurchCRM\ListOptionQuery;
 use ChurchCRM\MenuConfigQuery;
-use ChurchCRM\UserConfigQuery;
-
-function Header_system_notifications()
-{
-    if (NotificationService::hasActiveNotifications()) {
-        ?>
-        <div class="systemNotificationBar">
-            <?php
-            foreach (NotificationService::getNotifications() as $notification) {
-                echo "<a href=\"" . $notification->link . "\">" . $notification->title . "</a>";
-            } ?>
-        </div>
-        <?php
-    }
-}
+use ChurchCRM\Authentication\AuthenticationManager;
+use ChurchCRM\Utils\PHPToMomentJSConverter;
+use ChurchCRM\Bootstrapper;
 
 function Header_modals()
 {
@@ -94,7 +78,7 @@ function Header_modals()
 
 function Header_body_scripts()
 {
-    global $localeInfo;
+    $localeInfo = Bootstrapper::GetCurrentLocale();
     $systemService = new SystemService(); ?>
     <script nonce="<?= SystemURLs::getCSPNonce() ?>">
         window.CRM = {
@@ -103,9 +87,13 @@ function Header_body_scripts()
             lang: "<?= $localeInfo->getLanguageCode() ?>",
             locale: "<?= $localeInfo->getLocale() ?>",
             shortLocale: "<?= $localeInfo->getShortLocale() ?>",
-            maxUploadSize: "<?= $systemService->getMaxUploadFileSize(true) ?>",
-            maxUploadSizeBytes: "<?= $systemService->getMaxUploadFileSize(false) ?>",
+            maxUploadSize: "<?= SystemService::getMaxUploadFileSize(true) ?>",
+            maxUploadSizeBytes: "<?= SystemService::getMaxUploadFileSize(false) ?>",
             datePickerformat:"<?= SystemConfig::getValue('sDatePickerPlaceHolder') ?>",
+            churchWebSite:"<?= SystemConfig::getValue('sChurchWebSite') ?>",
+            systemConfigs: {
+              sDateTimeFormat: "<?= PHPToMomentJSConverter::ConvertFormatString(SystemConfig::getValue('sDateTimeFormat'))?>",
+            },
             iDasbhoardServiceIntervalTime:"<?= SystemConfig::getValue('iDasbhoardServiceIntervalTime') ?>",
             plugin: {
                 dataTable : {
@@ -113,13 +101,12 @@ function Header_body_scripts()
                         "url": "<?= SystemURLs::getRootPath() ?>/locale/datatables/<?= $localeInfo->getDataTables() ?>.json"
                     },
                     responsive: true,
-                    "dom": 'T<"clear">lfrtip',
-                    "tableTools": {
-                        "sSwfPath": "<?= SystemURLs::getRootPath() ?>/skin/adminlte/plugins/datatables/extensions/TableTools/swf/copy_csv_xls.swf"
-                    }
+                    dom: "<'row'<'col-sm-4'<?= AuthenticationManager::GetCurrentUser()->isCSVExport() ? "B" : "" ?>><'col-sm-4'r><'col-sm-4 searchStyle'f>>" +
+                            "<'row'<'col-sm-12't>>" +
+                            "<'row'<'col-sm-4'l><'col-sm-4'i><'col-sm-4'p>>"
                 }
             },
-            PageName:"<?= $_SERVER['PHP_SELF']?>"
+            PageName:"<?= $_SERVER['REQUEST_URI']; ?>"
         };
     </script>
     <script src="<?= SystemURLs::getRootPath() ?>/skin/js/CRMJSOM.js"></script>

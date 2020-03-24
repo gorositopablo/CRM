@@ -14,7 +14,6 @@ class SystemURLs
     private static $urls;
     private static $documentRoot;
     private static $CSPNonce;
-    private static $supportURL = "https://github.com/ChurchCRM/CRM/wiki";
 
     public static function init($rootPath, $urls, $documentRoot)
     {
@@ -51,14 +50,37 @@ class SystemURLs
         return self::$urls;
     }
 
-    public static function getSupportURL()
+    public static function getSupportURL($topic="")
     {
-        return self::$supportURL;
+        $supportURLs = array(
+            "HttpsTask" => "https://github.com/ChurchCRM/CRM/wiki/SSL",
+            "CheckExecutionTimeTask" => "https://github.com/ChurchCRM/CRM/wiki/PHP-Max-Execution-Time",
+            "SecretsConfigurationCheckTask" => "https://github.com/ChurchCRM/CRM/wiki/Secret-Keys-in-Config.php",
+            "UnsupportedPaymentDataCheck" => 'https://github.com/ChurchCRM/CRM/wiki/Finances',
+            "UnsupportedDepositCheck" => 'https://github.com/ChurchCRM/CRM/wiki/Finances',
+            "CheckUploadSizeTask" => "https://mediatemple.net/community/products/dv/204404784/how-do-i-increase-the-php-upload-limits"
+        );
+
+        if ( array_key_exists($topic,$supportURLs) ) {
+            return $supportURLs[$topic];
+        }
+        else {
+            // if we're well-behavied with creating doucmentation,
+            // this code should never be executed.
+            return 'https://github.com/ChurchCRM/CRM/search?q='.$topic;
+        }
+      
     }
 
-  public static function getURL($index = 0)
+    public static function getURL($index = 0)
     {
-        return self::$urls[$index];
+        // Return the URL configured for this server from Include/Config.php
+        // Trim any trailing slashes from the configured URL
+        $URL = self::$urls[$index];
+        if (substr($URL,-1,1) == "/") {
+            return substr($URL,0,-1);
+        }
+        return $URL;
     }
 
     private static function isValidRootPath()

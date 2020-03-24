@@ -11,6 +11,10 @@ use Propel\Runtime\ActiveQuery\Criteria;
 
 class BirthdaysCalendar implements SystemCalendar {
  
+  public static function isAvailable() {
+    return true;
+  }
+  
   public function getAccessToken() {
     return false;
   }
@@ -31,7 +35,7 @@ class BirthdaysCalendar implements SystemCalendar {
     return gettext("Birthdays");
   }
     
-  public function getEvents() {
+  public function getEvents($start,$end) {
     $people = PersonQuery::create()
             ->filterByBirthDay('', Criteria::NOT_EQUAL)
             ->find();
@@ -57,6 +61,7 @@ class BirthdaysCalendar implements SystemCalendar {
       $birthday->setStart($year.'-'.$person->getBirthMonth().'-'.$person->getBirthDay());
       $age = $person->getAge($birthday->getStart());
       $birthday->setTitle(gettext("Birthday") . ": " . $person->getFullName() . ( $age ? " (".$age.")" : '' ));
+      $birthday->setURL($person->getViewURI());
       $events->push($birthday);
     }
     return $events;

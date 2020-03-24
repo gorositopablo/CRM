@@ -1,5 +1,6 @@
 <?php
 use ChurchCRM\dto\SystemURLs;
+use ChurchCRM\dto\SystemConfig;
 
 require_once 'Header-Security.php';
 
@@ -15,12 +16,12 @@ require_once 'Header-Security.php';
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 
     <!-- Bootstrap 3.3.5 -->
-    <link rel="stylesheet" href="<?= SystemURLs::getRootPath() ?>/skin/adminlte/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="<?= SystemURLs::getRootPath() ?>/skin/external/bootstrap/bootstrap.min.css">
     <!-- Custom ChurchCRM styles -->
     <link rel="stylesheet" href="<?= SystemURLs::getRootPath() ?>/skin/churchcrm.min.css">
 
     <!-- jQuery JS -->
-    <script src="<?= SystemURLs::getRootPath() ?>/skin/adminlte/plugins/jQuery/jquery-2.2.3.min.js"></script>
+    <script src="<?= SystemURLs::getRootPath() ?>/skin/external/jquery/jquery.min.js"></script>
 
     <title>ChurchCRM: <?= $sPageTitle ?></title>
 
@@ -29,6 +30,7 @@ require_once 'Header-Security.php';
 
   <script nonce="<?= SystemURLs::getCSPNonce() ?>"  >
     window.CRM = {
-      root: "<?= SystemURLs::getRootPath() ?>"
+      root: "<?= SystemURLs::getRootPath() ?>",
+      churchWebSite:"<?= SystemConfig::getValue('sChurchWebSite') ?>"
     };
   </script>

@@ -16,12 +16,8 @@ use ChurchCRM\dto\SystemURLs;
 use ChurchCRM\dto\Cart;
 use ChurchCRM\Service\TaskService;
 use ChurchCRM\Utils\RedirectUtils;
-
-if (!SystemService::isDBCurrent()) {  //either the DB is good, or the upgrade was successful.
-    RedirectUtils::Redirect('SystemDBUpdate.php');
-    exit;
-}
-
+use ChurchCRM\Authentication\AuthenticationManager;
+use ChurchCRM\Authentication\AuthenticationProviders\LocalAuthentication;
 
 $taskService = new TaskService();
 
@@ -45,17 +41,14 @@ $MenuFirst = 1;
   <?php require 'Header-HTML-Scripts.php'; ?>
 </head>
 
-<body class="hold-transition <?= $_SESSION['user']->getStyle() ?> sidebar-mini">
-<?php
-  Header_system_notifications();
- ?>
+<body class="hold-transition <?= AuthenticationManager::GetCurrentUser()->getStyle() ?> sidebar-mini">
 <!-- Site wrapper -->
 <div class="wrapper">
   <?php
   Header_modals();
   Header_body_scripts();
 
-  $loggedInUserPhoto = SystemURLs::getRootPath().'/api/persons/'.$_SESSION['user']->getId().'/thumbnail';
+  $loggedInUserPhoto = SystemURLs::getRootPath().'/api/person/'.AuthenticationManager::GetCurrentUser()->getId().'/thumbnail';
   $MenuFirst = 1;
   ?>
 
@@ -77,7 +70,7 @@ $MenuFirst = 1;
     <!-- Header Navbar: style can be found in header.less -->
     <nav class="navbar navbar-static-top">
       <!-- Sidebar toggle button-->
-      <a href="#" class="sidebar-toggle" data-toggle="offcanvas" role="button">
+      <a href="#" class="sidebar-toggle" data-toggle="push-menu" role="button">
         <span class="sr-only"><?= gettext('Toggle navigation') ?></span>
         <span class="icon-bar"></span>
         <span class="icon-bar"></span>
@@ -98,32 +91,38 @@ $MenuFirst = 1;
           <!-- User Account: style can be found in dropdown.less -->
           <li class="dropdown user user-menu">
             <a href="#" class="dropdown-toggle" id="dropdown-toggle" data-toggle="dropdown" title="<?= gettext('Your settings and more') ?>">
-              <img src="<?= SystemURLs::getRootPath()?>/api/persons/<?= $_SESSION['user']->getPersonId() ?>/thumbnail" class="user-image initials-image" alt="User Image">
-              <span class="hidden-xs"><?= $_SESSION['user']->getName() ?> </span>
+              <img src="<?= SystemURLs::getRootPath()?>/api/person/<?= AuthenticationManager::GetCurrentUser()->getPersonId() ?>/thumbnail" class="user-image initials-image" alt="User Image">
+              <span class="hidden-xs"><?= AuthenticationManager::GetCurrentUser()->getName() ?> </span>
 
             </a>
             <ul class="hidden-xxs dropdown-menu">
-              <li class="user-header" id="yourElement" style="height:205px">
+              <li class="user-header" id="yourElement" style="height:auto">
                 <table border=0 width="100%">
                 <tr style="border-bottom: 1pt solid white;">
                 <td valign="middle" width=110>
-                  <img width="80" src="<?= SystemURLs::getRootPath()?>/api/persons/<?= $_SESSION['user']->getPersonId() ?>/thumbnail" class="initials-image img-circle no-border" alt="User Image">
+                  <img width="80" src="<?= SystemURLs::getRootPath()?>/api/person/<?= AuthenticationManager::GetCurrentUser()->getPersonId() ?>/thumbnail" class="initials-image img-circle no-border" alt="User Image">
                 </td>
                 <td valign="middle" align="left" >
-                  <a href="<?= SystemURLs::getRootPath()?>/PersonView.php?PersonID=<?= $_SESSION['user']->getPersonId() ?>" class="item_link">
+                  <a href="<?= SystemURLs::getRootPath()?>/PersonView.php?PersonID=<?= AuthenticationManager::GetCurrentUser()->getPersonId() ?>" class="item_link">
                       <p ><i class="fa fa-home"></i> <?= gettext("Profile") ?></p></a>
-                  <a href="<?= SystemURLs::getRootPath() ?>/UserPasswordChange.php" class="item_link">
+                  <a href="<?= SystemURLs::getRootPath() ?>/v2/user/current/changepassword" class="item_link" id="change-password">
                       <p ><i class="fa fa-key"></i> <?= gettext('Change Password') ?></p></a>
                   <a href="<?= SystemURLs::getRootPath() ?>/SettingsIndividual.php" class="item_link">
                       <p ><i class="fa fa-gear"></i> <?= gettext('Change Settings') ?></p></a>
-                  <a href="Login.php?session=Lock" class="item_link">
-                      <p ><i class="fa fa-pause"></i> <?= gettext('Lock') ?></p></a>
-                  <a href="<?= SystemURLs::getRootPath() ?>/Logoff.php" class="item_link">
+                  <?php
+                    if (LocalAuthentication::GetIsTwoFactorAuthSupported()) {
+                        ?>
+                  <a href="<?= SystemURLs::getRootPath() ?>/v2/user/current/enroll2fa" class="item_link">
+                      <p ><i class="fa fa-gear"></i> <?= gettext("Manage 2 Factor Authentication") ?></p></a>
+                  <?php
+                    }
+                  ?>
+                  <a href="<?= SystemURLs::getRootPath() ?>/session/end" class="item_link">
                       <p ><i class="fa fa-sign-out"></i> <?= gettext('Sign out') ?></p></a>
                 </td>
                 </tr>
                 </table>
-                <p style="color:#fff"><b><?= $_SESSION['user']->getName() ?></b></p>
+                <p style="color:#fff"><b><?= AuthenticationManager::GetCurrentUser()->getName() ?></b></p>
               </li>
             </ul>
           </li>
@@ -160,7 +159,7 @@ $MenuFirst = 1;
           ?>
           <li class="dropdown settings-dropdown">
             <a href="#" data-toggle="control-sidebar" title="<?= gettext('Your tasks') ?>">
-              <i class="fa fa-gears"></i>
+              <i class="fa fa-tasks"></i>
               <span class="label label-danger"><?= $taskSize ?></span>
             </a>
           </li>
@@ -183,7 +182,7 @@ $MenuFirst = 1;
       </form>
       <!-- /.search form -->
       <!-- sidebar menu: : style can be found in sidebar.less -->
-      <ul class="sidebar-menu">
+      <ul class="sidebar-menu" data-widget="tree">
         <?php MenuRenderer::RenderMenu(); ?>
       </ul>
     </section>
@@ -195,9 +194,3 @@ $MenuFirst = 1;
     </section>
     <!-- Main content -->
     <section class="content">
-        <div class="main-box-body clearfix" style="display:none" id="globalMessage">
-          <div class="callout fade in" id="globalMessageCallOut">
-            <button type="button" class="close" data-dismiss="alert" aria-hidden="true">×</button>
-            <i class="fa fa-exclamation-triangle fa-fw fa-lg"></i><span id="globalMessageText"></span>
-          </div>
-        </div>

@@ -20,6 +20,7 @@ use ChurchCRM\dto\SystemURLs;
 use ChurchCRM\Service\MailChimpService;
 use ChurchCRM\Service\TimelineService;
 use ChurchCRM\Utils\InputUtils;
+use ChurchCRM\Authentication\AuthenticationManager;
 
 $timelineService = new TimelineService();
 $mailchimp = new MailChimpService();
@@ -37,7 +38,7 @@ if (array_key_exists('RemoveVO', $_GET)) {
     $iRemoveVO = InputUtils::LegacyFilterInput($_GET['RemoveVO'], 'int');
 }
 
-if (isset($_POST['VolunteerOpportunityAssign']) && $_SESSION['user']->isEditRecordsEnabled()) {
+if (isset($_POST['VolunteerOpportunityAssign']) && AuthenticationManager::GetCurrentUser()->isEditRecordsEnabled()) {
     $volIDs = $_POST['VolunteerOpportunityIDs'];
     if ($volIDs) {
         foreach ($volIDs as $volID) {
@@ -47,7 +48,7 @@ if (isset($_POST['VolunteerOpportunityAssign']) && $_SESSION['user']->isEditReco
 }
 
 // Service remove-volunteer-opportunity (these links set RemoveVO)
-if ($iRemoveVO > 0 && $_SESSION['user']->isEditRecordsEnabled()) {
+if ($iRemoveVO > 0 && AuthenticationManager::GetCurrentUser()->isEditRecordsEnabled()) {
     RemoveVolunteerOpportunity($iPersonID, $iRemoveVO);
 }
 
@@ -177,9 +178,9 @@ if ($per_Envelope > 0) {
 
 $iTableSpacerWidth = 10;
 
-$bOkToEdit = ($_SESSION['user']->isEditRecordsEnabled() ||
-    ($_SESSION['user']->isEditSelfEnabled() && $per_ID == $_SESSION['user']->getId()) ||
-    ($_SESSION['user']->isEditSelfEnabled() && $per_fam_ID == $_SESSION['user']->getPerson()->getFamId())
+$bOkToEdit = (AuthenticationManager::GetCurrentUser()->isEditRecordsEnabled() ||
+    (AuthenticationManager::GetCurrentUser()->isEditSelfEnabled() && $per_ID == AuthenticationManager::GetCurrentUser()->getId()) ||
+    (AuthenticationManager::GetCurrentUser()->isEditSelfEnabled() && $per_fam_ID == AuthenticationManager::GetCurrentUser()->getPerson()->getFamId())
 );
 
 ?>
@@ -188,7 +189,7 @@ $bOkToEdit = ($_SESSION['user']->isEditRecordsEnabled() ||
         <div class="box box-primary">
             <div class="box-body box-profile">
                 <div class="image-container">
-                    <img src ="<?= SystemURLs::getRootPath().'/api/persons/'.$person->getId().'/photo' ?>"
+                    <img src ="<?= SystemURLs::getRootPath().'/api/person/'.$person->getId().'/photo' ?>"
                          class="initials-image profile-user-img img-responsive img-rounded profile-user-img-md">
                     <?php if ($bOkToEdit): ?>
                         <div class="after">
@@ -328,34 +329,41 @@ $bOkToEdit = ($_SESSION['user']->isEditRecordsEnabled() ||
 
     if ($per_FacebookID > 0) {
         ?>
-              <li><i class="fa-li fa fa-facebook-official"></i><?= gettext('Facebook') ?>: <span><a href="https://www.facebook.com/<?= InputUtils::FilterInt($per_FacebookID) ?>"><?= gettext('Facebook') ?></a></span></li>
+              <li><i class="fa-li fa fa-facebook-official"></i><?= gettext('Facebook') ?>: <span><a href="https://www.facebook.com/<?= InputUtils::FilterInt($per_FacebookID) ?> "target="_blank"><?= gettext('Facebook') ?></a></span></li>
           <?php
     }
 
     if (strlen($per_Twitter) > 0) {
         ?>
-              <li><i class="fa-li fa fa-twitter"></i><?= gettext('Twitter') ?>: <span><a href="https://www.twitter.com/<?= InputUtils::FilterString($per_Twitter) ?>"><?= gettext('Twitter') ?></a></span></li>
+              <li><i class="fa-li fa fa-twitter"></i><?= gettext('Twitter') ?>: <span><a href="https://www.twitter.com/<?= InputUtils::FilterString($per_Twitter) ?>" target="_blank"><?= gettext('Twitter') ?></a></span></li>
           <?php
     }
 
                     if (strlen($per_LinkedIn) > 0) {
                         ?>
-                        <li><i class="fa-li fa fa-linkedin"></i><?= gettext('LinkedIn') ?>: <span><a href="https://www.linkedin.com/in/<?= InputUtils::FiltersTring($per_LinkedIn) ?>"><?= gettext('LinkedIn') ?></a></span></li>
+                        <li><i class="fa-li fa fa-linkedin"></i><?= gettext('LinkedIn') ?>: <span><a href="https://www.linkedin.com/in/<?= InputUtils::FiltersTring($per_LinkedIn) ?>" target="_blank"><?= gettext('LinkedIn') ?></a></span></li>
                         <?php
                     }
 
-                    // Display the right-side custom fields
+                    // Display the side custom fields
                     while ($Row = mysqli_fetch_array($rsCustomFields)) {
                         extract($Row);
                         $currentData = trim($aCustomData[$custom_Field]);
+                        $displayIcon = "fa fa-tag";
+                        $displayLink = "";
                         if ($currentData != '') {
-                            if ($type_ID == 11) {
+                            if ($type_ID == 9) {
+                                $displayIcon = "fa fa-user";
+                                $displayLink = SystemURLs::getRootPath() .'/PersonView.php?PersonID=' . $currentData;
+                            } elseif ($type_ID == 11) {
                                 $custom_Special = $sPhoneCountry;
+                                $displayIcon = "fa-phone";
+                                $displayLink = "tel:".$temp_string;
                             }
-                            echo '<li><i class="fa-li '.(($type_ID == 11)?'fa fa-phone':'fa fa-tag').'"></i>'.$custom_Name.': <span>';
+                            echo '<li><i class="fa-li ' . $displayIcon . '"></i>'.$custom_Name.': <span>';
                             $temp_string=nl2br((displayCustomField($type_ID, $currentData, $custom_Special)));
-                            if ($type_ID == 11) {
-                                echo "<a href=\"tel:".$temp_string."\">".$temp_string."</a>";
+                            if ($displayLink) {
+                                echo "<a href=\"" . $displayLink . "\">" . $temp_string . "</a>";
                             } else {
                                 echo $temp_string;
                             }
@@ -371,31 +379,31 @@ $bOkToEdit = ($_SESSION['user']->isEditRecordsEnabled() ||
     </div>
     <div class="col-lg-9 col-md-9 col-sm-9">
         <div class="box box-primary box-body">
-            <?php if ($per_ID == $_SESSION['user']->getPersonId()) {
+            <?php if ($per_ID == AuthenticationManager::GetCurrentUser()->getPersonId()) {
                         ?>
                 <a class="btn btn-app" href="<?= SystemURLs::getRootPath() ?>/SettingsIndividual.php"><i class="fa fa-cog"></i> <?= gettext("Change Settings") ?></a>
-                <a class="btn btn-app" href="<?= SystemURLs::getRootPath() ?>/UserPasswordChange.php"><i class="fa fa-key"></i> <?= gettext("Change Password") ?></a>
+                <a class="btn btn-app" href="<?= SystemURLs::getRootPath() ?>/v2/user/current/changepassword"><i class="fa fa-key"></i> <?= gettext("Change Password") ?></a>
                 <?php
                     } ?>
             <a class="btn btn-app" href="<?= SystemURLs::getRootPath() ?>/PrintView.php?PersonID=<?= $iPersonID ?>"><i class="fa fa-print"></i> <?= gettext("Printable Page") ?></a>
             <a class="btn btn-app AddToPeopleCart" id="AddPersonToCart" data-cartpersonid="<?= $iPersonID ?>"><i class="fa fa-cart-plus"></i><span class="cartActionDescription"><?= gettext("Add to Cart") ?></span></a>
-            <?php if ($_SESSION['user']->isNotesEnabled()) {
+            <?php if (AuthenticationManager::GetCurrentUser()->isNotesEnabled()) {
                         ?>
                 <a class="btn btn-app" href="<?= SystemURLs::getRootPath() ?>/WhyCameEditor.php?PersonID=<?= $iPersonID ?>"><i class="fa fa-question-circle"></i> <?= gettext("Edit \"Why Came\" Notes") ?></a>
                 <a class="btn btn-app" href="<?= SystemURLs::getRootPath() ?>/NoteEditor.php?PersonID=<?= $iPersonID ?>"><i class="fa fa-sticky-note"></i> <?= gettext("Add a Note") ?></a>
                 <?php
                     }
-            if ($_SESSION['user']->isManageGroupsEnabled()) {
+            if (AuthenticationManager::GetCurrentUser()->isManageGroupsEnabled()) {
                 ?>
                 <a class="btn btn-app" id="addGroup"><i class="fa fa-users"></i> <?= gettext("Assign New Group") ?></a>
                 <?php
             }
-            if ($_SESSION['user']->isDeleteRecordsEnabled()) {
+            if (AuthenticationManager::GetCurrentUser()->isDeleteRecordsEnabled()) {
                 ?>
                 <a class="btn btn-app bg-maroon delete-person" data-person_name="<?= $person->getFullName()?>" data-person_id="<?= $iPersonID ?>"><i class="fa fa-trash-o"></i> <?= gettext("Delete this Record") ?></a>
                 <?php
             }
-            if ($_SESSION['user']->isAdmin()) {
+            if (AuthenticationManager::GetCurrentUser()->isAdmin()) {
                 if (!$person->isUser()) {
                     ?>
                     <a class="btn btn-app" href="<?= SystemURLs::getRootPath() ?>/UserEditor.php?NewPersonID=<?= $iPersonID ?>"><i class="fa fa-user-secret"></i> <?= gettext('Make User') ?></a>
@@ -411,7 +419,7 @@ $bOkToEdit = ($_SESSION['user']->isEditRecordsEnabled() ||
                 <a class="btn btn-app" href="<?= SystemURLs::getRootPath() ?>/v2/user/<?= $iPersonID ?>"><i class="fa fa-eye"></i> <?= gettext('View User') ?></a>
             <?php
             } ?>
-            <a class="btn btn-app" role="button" href="<?= SystemURLs::getRootPath() ?>/SelectList.php?mode=person"><i class="fa fa-list"></i> <?= gettext("List Members") ?></span></a>
+            <a class="btn btn-app" role="button" href="<?= SystemURLs::getRootPath() ?>/v2/people"><i class="fa fa-list"></i> <?= gettext("List Members") ?></span></a>
         </div>
     </div>
     <div class="col-lg-9 col-md-9 col-sm-9">
@@ -448,7 +456,7 @@ $bOkToEdit = ($_SESSION['user']->isEditRecordsEnabled() ||
 
                 <div class="timeline-item">
                       <span class="time">
-                    <?php if ($_SESSION['user']->isNotesEnabled() && (isset($item["editLink"]) || isset($item["deleteLink"]))) {
+                    <?php if (AuthenticationManager::GetCurrentUser()->isNotesEnabled() && (isset($item["editLink"]) || isset($item["deleteLink"]))) {
                               ?>
                         <?php if (isset($item["editLink"])) {
                                   ?>
@@ -513,12 +521,12 @@ $bOkToEdit = ($_SESSION['user']->isEditRecordsEnabled() ||
             </tr>
             </thead>
             <tbody>
-            <?php foreach ($person->getOtherFamilyMembers() as $familyMember) {
+            <?php foreach ($person->getFamily()->getPeople() as $familyMember) {
                               $tmpPersonId = $familyMember->getId(); ?>
               <tr>
                 <td>
 
-                 <img style="width:40px; height:40px;display:inline-block" src = "<?= $sRootPath.'/api/persons/'.$familyMember->getId().'/thumbnail' ?>" class="initials-image profile-user-img img-responsive img-circle no-border">
+                 <img style="width:40px; height:40px;display:inline-block" src = "<?= $sRootPath.'/api/person/'.$familyMember->getId().'/thumbnail' ?>" class="initials-image profile-user-img img-responsive img-circle no-border">
                   <a href="<?= SystemURLs::getRootPath() ?>/PersonView.php?PersonID=<?= $tmpPersonId ?>" class="user-link"><?= $familyMember->getFullName() ?> </a>
 
 
@@ -552,11 +560,12 @@ $bOkToEdit = ($_SESSION['user']->isEditRecordsEnabled() ||
                         <i class="fa fa-pencil fa-stack-1x fa-inverse"></i>
                       </span>
                                             </a>
-                                            <a href="<?= SystemURLs::getRootPath() ?>/SelectDelete.php?mode=person&PersonID=<?= $tmpPersonId ?>">
-                      <span class="fa-stack">
-                        <i class="fa fa-square fa-stack-2x"></i>
-                        <i class="fa fa-trash-o fa-stack-1x fa-inverse"></i>
-                      </span>
+                                             <a class="delete-person" data-person_name="<?= $familyMember->getFullName() ?>"
+                                           data-person_id="<?= $familyMember->getId() ?>" data-view="family">
+                                                <span class="fa-stack">
+                                                    <i class="fa fa-square fa-stack-2x"></i>
+                                                    <i class="fa fa-trash-o fa-stack-1x fa-inverse btn-danger"></i>
+                                                </span>
                                             </a>
                                             <?php
                               } ?>
@@ -586,7 +595,7 @@ $bOkToEdit = ($_SESSION['user']->isEditRecordsEnabled() ||
                                 // Loop through the rows
                                 while ($aRow = mysqli_fetch_array($rsAssignedGroups)) {
                                     extract($aRow); ?>
-                                    <div class="col-md-3">
+                                    <div class="col-md-4">
                                         <p><br/></p>
                                         <!-- Info box -->
                                         <div class="box box-info">
@@ -626,7 +635,7 @@ $bOkToEdit = ($_SESSION['user']->isEditRecordsEnabled() ||
                                             } ?>
                                             <div class="box-footer">
                                                 <code>
-                                                    <?php if ($_SESSION['user']->isManageGroupsEnabled()) {
+                                                    <?php if (AuthenticationManager::GetCurrentUser()->isManageGroupsEnabled()) {
                                                 ?>
                                                         <a href="<?= SystemURLs::getRootPath() ?>/GroupView.php?GroupID=<?= $grp_ID ?>" class="btn btn-default" role="button"><i class="fa fa-list"></i></a>
                                                         <div class="btn-group">
@@ -787,7 +796,7 @@ $bOkToEdit = ($_SESSION['user']->isEditRecordsEnabled() ||
                                 echo '<tr class="TableHeader">';
                                 echo '<th>'.gettext('Name').'</th>';
                                 echo '<th>'.gettext('Description').'</th>';
-                                if ($_SESSION['user']->isEditRecordsEnabled()) {
+                                if (AuthenticationManager::GetCurrentUser()->isEditRecordsEnabled()) {
                                     echo '<th>'.gettext('Remove').'</th>';
                                 }
                                 echo '</tr>';
@@ -805,7 +814,7 @@ $bOkToEdit = ($_SESSION['user']->isEditRecordsEnabled() ||
                                     echo '<td>'.$vol_Name.'</a></td>';
                                     echo '<td>'.$vol_Description.'</a></td>';
 
-                                    if ($_SESSION['user']->isEditRecordsEnabled()) {
+                                    if (AuthenticationManager::GetCurrentUser()->isEditRecordsEnabled()) {
                                         echo '<td><a class="SmallText" href="<?= SystemURLs::getRootPath() ?>/PersonView.php?PersonID='.$per_ID.'&RemoveVO='.$vol_ID.'">'.gettext('Remove').'</a></td>';
                                     }
 
@@ -818,7 +827,7 @@ $bOkToEdit = ($_SESSION['user']->isEditRecordsEnabled() ||
                                 echo '</table>';
                             } ?>
 
-                            <?php if ($_SESSION['user']->isEditRecordsEnabled() && $rsVolunteerOpps->num_rows): ?>
+                            <?php if (AuthenticationManager::GetCurrentUser()->isEditRecordsEnabled() && $rsVolunteerOpps->num_rows): ?>
                                 <div class="alert alert-info">
                                     <div>
                                         <h4><strong><?= gettext('Assign a New Volunteer Opportunity') ?>:</strong></h4>
@@ -885,7 +894,7 @@ $bOkToEdit = ($_SESSION['user']->isEditRecordsEnabled() ||
                                         <?= $item['text'] ?>
                                     </div>
 
-                                    <?php if (($_SESSION['user']->isNotesEnabled()) && ($item['editLink'] != '' || $item['deleteLink'] != '')) {
+                                    <?php if ((AuthenticationManager::GetCurrentUser()->isNotesEnabled()) && ($item['editLink'] != '' || $item['deleteLink'] != '')) {
                                                                 ?>
                                         <div class="timeline-footer">
                                             <?php if ($item['editLink'] != '') {
@@ -950,21 +959,16 @@ $bOkToEdit = ($_SESSION['user']->isEditRecordsEnabled() ||
 
 
     $("#deletePhoto").click (function () {
-        $.ajax({
-            type: "POST",
-            url: window.CRM.root + "/api/persons/<?= $iPersonID ?>/photo",
-            encode: true,
-            dataType: 'json',
-            data: {
-                "_METHOD": "DELETE"
-            }
+        window.CRM.APIRequest({
+            method: "DELETE",
+            path: "person/<?= $iPersonID ?>/photo"
         }).done(function(data) {
             location.reload();
         });
     });
 
     window.CRM.photoUploader =  $("#photoUploader").PhotoUploader({
-        url: window.CRM.root + "/api/persons/<?= $iPersonID ?>/photo",
+        url: window.CRM.root + "/api/person/<?= $iPersonID ?>/photo",
         maxPhotoSize: window.CRM.maxUploadSize,
         photoHeight: <?= SystemConfig::getValue("iPhotoHeight") ?>,
         photoWidth: <?= SystemConfig::getValue("iPhotoWidth") ?>,
@@ -986,14 +990,14 @@ $bOkToEdit = ($_SESSION['user']->isEditRecordsEnabled() ||
         $("#assigned-properties-table").DataTable(window.CRM.plugin.dataTable);
 
 
-        contentExists(window.CRM.root + "/api/persons/" + window.CRM.currentPersonID + "/photo", function(success) {
+        contentExists(window.CRM.root + "/api/person/" + window.CRM.currentPersonID + "/photo", function(success) {
             if (success) {
                 $("#view-larger-image-btn").removeClass('hide');
 
                 $("#view-larger-image-btn").click(function() {
                     bootbox.alert({
                         title: "<?= gettext('Photo') ?>",
-                        message: '<img class="img-rounded img-responsive center-block" src="<?= SystemURLs::getRootPath() ?>/api/persons/' + window.CRM.currentPersonID + '/photo" />',
+                        message: '<img class="img-rounded img-responsive center-block" src="<?= SystemURLs::getRootPath() ?>/api/person/' + window.CRM.currentPersonID + '/photo" />',
                         backdrop: true
                     });
                 });

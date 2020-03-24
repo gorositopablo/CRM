@@ -7,9 +7,24 @@
       {
         options.method="GET"
       }
+      else if (options.method === "DELETE" )
+      {
+        options.method = "POST";
+        options.data = JSON.stringify({"_METHOD" : "DELETE" });
+        options.dataType = 'json';
+      }
+      else
+      {
+        options.dataType = 'json';
+      }
       options.url=window.CRM.root+"/api/"+options.path;
-      options.dataType = 'json';
       options.contentType =  "application/json";
+      options.beforeSend = function(jqXHR, settings) {
+        jqXHR.url = settings.url;
+      }
+      options.error = function(jqXHR, textStatus, errorThrown) {
+        window.CRM.system.handlejQAJAXError(jqXHR, textStatus, errorThrown, options.suppressErrorDialog);
+      }
       return $.ajax(options);
     }
 
@@ -165,7 +180,8 @@
       'refresh' : function () {
         window.CRM.APIRequest({
           method: 'GET',
-          path:"cart/"
+          path:"cart/",
+          suppressErrorDialog: true
         }).done(function(data) {
           window.CRM.cart.updatePage(data.PeopleCart);
           window.scrollTo(0, 0);
@@ -176,7 +192,7 @@
               <li id="showWhenCartNotEmpty">\
                   <ul class="menu">\
                       <li>\
-                          <a href="' + window.CRM.root+ '/CartView.php">\
+                          <a href="' + window.CRM.root+ '/v2/cart">\
                               <i class="fa fa-shopping-cart text-green"></i>' + i18next.t("View Cart") + '\
                           </a>\
                       </li>\
@@ -196,12 +212,12 @@
                           </a>\
                       </li>\
                       <li>\
-                          <a href="' + window.CRM.root+ '/"CartToEvent.php">\
+                          <a href="' + window.CRM.root+ '/CartToEvent.php">\
                               <i class="fa fa fa-ticket text-info"></i>' + i18next.t("Empty Cart to Event") + '\
                           </a>\
                       </li>\
                       <li>\
-                          <a href=' + window.CRM.root+ '/MapUsingGoogle.php?GroupID=0">\
+                          <a href="' + window.CRM.root+ '/MapUsingGoogle.php?GroupID=0">\
                               <i class="fa fa-map-marker text-info"></i>' + i18next.t("Map Cart") + '\
                           </a>\
                       </li>\
@@ -496,19 +512,41 @@
 
     window.CRM.system = {
       'runTimerJobs' : function () {
-        $.ajax({
-          url: window.CRM.root + "/api/timerjobs/run",
-          type: "POST"
+        window.CRM.APIRequest({
+          method:"POST",
+          path: "background/timerjobs",
+          suppressErrorDialog: true
         });
+      },
+      'handlejQAJAXError': function (jqXHR, textStatus, errorThrown, suppressErrorDialog) {
+        if (jqXHR.status === 401) {
+          window.location = window.CRM.root + "/session/begin?location="+window.location.pathname;
+        }
+        try {
+          var CRMResponse = JSON.parse(jqXHR.responseText);
+        } catch(err) {
+          var errortext = textStatus + " " + errorThrown;
+        }
+
+        if ( !(textStatus == "abort" || suppressErrorDialog) ) {
+          if(CRMResponse) {
+             window.CRM.DisplayErrorMessage(jqXHR.url, CRMResponse);
+          }
+          else{
+            window.CRM.DisplayErrorMessage(jqXHR.url,{"message":errortext});
+          }
+        }
       }
     };
 
     window.CRM.dashboard = {
       renderers: {
         EventsCounters: function (data) {
-          document.getElementById('BirthdateNumber').innerText = data.Birthdays;
-          document.getElementById('AnniversaryNumber').innerText = data.Anniversaries;
-          document.getElementById('EventsNumber').innerText = data.Events;
+          if (document.getElementById('BirthdateNumber') != null) {
+            document.getElementById('BirthdateNumber').innerText = data.Birthdays;
+            document.getElementById('AnniversaryNumber').innerText = data.Anniversaries;
+            document.getElementById('EventsNumber').innerText = data.Events;
+          }
         },
         FamilyCount: function (data) {
           var dashBoardFam = document.getElementById('familyCountDashboard');
@@ -534,7 +572,7 @@
                 {
                   data: 'DateEntered',
                   render: function (data, type, row, meta) {
-                    return moment(data).format('MM-DD-YYYY hh:mm');
+                    return moment(data).format(window.CRM.systemConfigs.sDateTimeFormat);
                   }
                 }
               ]
@@ -562,7 +600,7 @@
                 {
                   data: 'DateLastEdited',
                   render: function (data, type, row, meta) {
-                    return moment(data).format('MM-DD-YYYY hh:mm');
+                    return moment(data).format(window.CRM.systemConfigs.sDateTimeFormat);
                   }
                 }
               ]
@@ -592,7 +630,8 @@
       refresh: function () {
         window.CRM.APIRequest({
           method: 'GET',
-          path: 'dashboard/page?currentpagename=' + window.CRM.PageName.replace(window.CRM.root,''),
+          path: 'background/dashboard/page?currentpagename=' + window.CRM.PageName.replace(window.CRM.root,''),
+          suppressErrorDialog: true
         }).done(function (data) {
           for (var key in data) {
             window["CRM"]["dashboard"]["renderers"][key](data[key]);
@@ -600,17 +639,6 @@
         });
       }
     }
-
-    $(document).ajaxError(function (evt, xhr, settings,errortext) {
-      if(errortext !== "abort") {
-        try {
-            var CRMResponse = JSON.parse(xhr.responseText);
-            window.CRM.DisplayErrorMessage(settings.url, CRMResponse);
-        } catch(err) {
-          window.CRM.DisplayErrorMessage(settings.url,{"message":errortext});
-        }
-      }
-    });
 
     function LimitTextSize(theTextArea, size) {
         if (theTextArea.value.length > size) {

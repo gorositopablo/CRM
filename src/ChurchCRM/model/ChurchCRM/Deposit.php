@@ -3,12 +3,13 @@
 namespace ChurchCRM;
 
 use ChurchCRM\Base\Deposit as BaseDeposit;
-use ChurchCRM\Base\Pledge;
+use ChurchCRM\PledgeQuery;
 use ChurchCRM\dto\SystemConfig;
 use ChurchCRM\Map\DonationFundTableMap;
 use ChurchCRM\Map\PledgeTableMap;
 use ChurchCRM\PledgeQuery as ChildPledgeQuery;
 use Propel\Runtime\ActiveQuery\Criteria;
+use Propel\Runtime\Connection\ConnectionInterface;
 
 /**
  * Skeleton subclass for representing a row from the 'deposit_dep' table.
@@ -21,7 +22,7 @@ use Propel\Runtime\ActiveQuery\Criteria;
  */
 class Deposit extends BaseDeposit
 {
-    public function preDelete()
+    public function preDelete(ConnectionInterface $con = null)
     {
         $this->getPledges()->delete();
 
@@ -167,9 +168,9 @@ class Deposit extends BaseDeposit
         $thisReport->curX = $thisReport->QBDepositTicketParameters->leftX + $thisReport->QBDepositTicketParameters->lineItemInterval->x;
         $thisReport->curY = $thisReport->QBDepositTicketParameters->topY;
 
-        $pledges = \ChurchCRM\PledgeQuery::create()
-            ->filterByDepid($this->getId())
-            ->groupByGroupkey()
+        $pledges = PledgeQuery::create()
+            ->filterByDepId($this->getId())
+            ->groupByGroupKey()
             ->withColumn('SUM(Pledge.Amount)', 'sumAmount')
             ->joinFamily(null, Criteria::LEFT_JOIN)
             ->withColumn('Family.Name')
@@ -177,7 +178,7 @@ class Deposit extends BaseDeposit
         foreach ($pledges as $pledge) {
             // then all of the checks in key-value pairs, in 3 separate columns.  Left to right, then top to bottom.
             if ($pledge->getMethod() == 'CHECK') {
-                $thisReport->pdf->PrintRightJustified($thisReport->curX, $thisReport->curY, $pledge->getCheckno());
+                $thisReport->pdf->PrintRightJustified($thisReport->curX, $thisReport->curY, $pledge->getCheckNo());
                 $thisReport->pdf->PrintRightJustified($thisReport->curX + $thisReport->QBDepositTicketParameters->amountOffsetX, $thisReport->curY, $pledge->getsumAmount());
 
                 $thisReport->curX += $thisReport->QBDepositTicketParameters->lineItemInterval->x;
@@ -280,8 +281,8 @@ class Deposit extends BaseDeposit
             $thisReport->pdf->SetFont('Times', '', 10);
 
             // Format Data
-            $checkNo = $payment->getCheckno();
-            $fundName = DonationFundQuery::create()->findOneById($payment->getFundid())->getName();
+            $checkNo = $payment->getCheckNo();
+            $fundName = DonationFundQuery::create()->findOneById($payment->getFundId())->getName();
             $comment = $payment->getComment();
             //$family = FamilyQuery::create()->findOneById($payment->getFamId());
             $family = $payment->getFamily();
@@ -352,6 +353,11 @@ class Deposit extends BaseDeposit
         $this->generateTotalsByCurrencyType($thisReport);
         $thisReport->curY += $thisReport->depositSummaryParameters->summary->intervalY * 2;
 
+        if (!empty($this->getComment()))
+        {
+          $thisReport->pdf->SetXY($thisReport->curX,  $thisReport->curY);
+          $thisReport->pdf->MultiCell(0, $thisReport->depositSummaryParameters->summary->intervalY, gettext('Deposit Comment') . ": " . $this->getComment(), 0, 'L');
+        }
         $thisReport->curY += 130;
         $thisReport->curX = $thisReport->depositSummaryParameters->summary->x;
 
@@ -360,6 +366,8 @@ class Deposit extends BaseDeposit
 
     private function generateWitnessSignature($thisReport)
     {
+        $thisReport->curX = $thisReport->depositSummaryParameters->summary->x;
+        $thisReport->curY = $thisReport->pdf->GetPageHeight()  - 30;
         $thisReport->pdf->setXY($thisReport->curX, $thisReport->curY);
         $thisReport->pdf->write(8, 'Witness 1');
         $thisReport->pdf->line($thisReport->curX + 17, $thisReport->curY + 8, $thisReport->curX + 80, $thisReport->curY + 8);
@@ -413,7 +421,7 @@ class Deposit extends BaseDeposit
     public function getTotalChecks()
     {
         $totalCash = PledgeQuery::create()
-            ->filterByDepid($this->getId())
+            ->filterByDepId($this->getId())
             ->filterByMethod('CHECK')
             ->withColumn('SUM(Pledge.Amount)', 'sumAmount')
             ->find()
@@ -425,7 +433,7 @@ class Deposit extends BaseDeposit
     public function getTotalCash()
     {
         $totalCash = PledgeQuery::create()
-            ->filterByDepid($this->getId())
+            ->filterByDepId($this->getId())
             ->filterByMethod('CASH')
             ->withColumn('SUM(Pledge.Amount)', 'sumAmount')
             ->find()
@@ -437,8 +445,8 @@ class Deposit extends BaseDeposit
     public function getCountChecks()
     {
         $countCash = PledgeQuery::create()
-            ->filterByDepid($this->getId())
-            ->groupByGroupkey()
+            ->filterByDepId($this->getId())
+            ->groupByGroupKey()
             ->filterByMethod('CHECK')
             ->find()
             ->count();
@@ -449,8 +457,8 @@ class Deposit extends BaseDeposit
     public function getCountCash()
     {
         $countCash = PledgeQuery::create()
-            ->filterByDepid($this->getId())
-            ->groupByGroupkey()
+            ->filterByDepId($this->getId())
+            ->groupByGroupKey()
             ->filterByMethod('CASH')
             ->find()
             ->count();
@@ -461,8 +469,8 @@ class Deposit extends BaseDeposit
     public function getFundTotals()
     {
         $funds = PledgeQuery::create()
-      ->filterByDepid($this->getId())
-      ->groupByFundid()
+      ->filterByDepId($this->getId())
+      ->groupByFundId()
       ->withColumn('SUM('.PledgeTableMap::COL_PLG_AMOUNT.')', 'Total')
       ->joinDonationFund()
       ->withColumn(DonationFundTableMap::COL_FUN_NAME, 'Name')

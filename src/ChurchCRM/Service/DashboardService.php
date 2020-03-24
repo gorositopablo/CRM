@@ -7,6 +7,23 @@ use ChurchCRM\PersonQuery;
 
 class DashboardService
 {
+  public function getAgeStats(){
+    $ageStats = [];
+    $people = PersonQuery::create()->find();
+    foreach($people as $person) {
+        $personNumericAge = (int)$person->getNumericAge();
+        if ($personNumericAge == 0)
+        {
+            continue;
+        }
+        if(!array_key_exists($personNumericAge,$ageStats)){
+            $ageStats[$personNumericAge] = 0;
+        }
+        $ageStats[$personNumericAge]++;
+    }
+    ksort($ageStats);
+    return $ageStats;
+  }
     public function getFamilyCount()
     {
         $familyCount = FamilyQuery::Create()
@@ -64,38 +81,6 @@ class DashboardService
         return $data;
     }
 
-
-    /**
-     * //Return last edited families. only active families selected
-     * @param int $limit
-     * @return array|\ChurchCRM\Family[]|mixed|\Propel\Runtime\ActiveRecord\ActiveRecordInterface[]|\Propel\Runtime\Collection\ObjectCollection
-     */
-    public function getUpdatedFamilies($limit = 12)
-    {
-        return FamilyQuery::create()
-            ->filterByDateDeactivated(null)
-            ->orderByDateLastEdited('DESC')
-            ->limit($limit)
-            ->find();
-
-    }
-
-    /**
-     * Return newly added families. Only active families selected
-     * @param int $limit
-     * @return array|\ChurchCRM\Family[]|mixed|\Propel\Runtime\ActiveRecord\ActiveRecordInterface[]|\Propel\Runtime\Collection\ObjectCollection
-     */
-    public function getLatestFamilies($limit = 12)
-    {
-
-        return FamilyQuery::create()
-            ->filterByDateDeactivated(null)
-            ->filterByDateLastEdited(null)
-            ->orderByDateEntered('DESC')
-            ->limit($limit)
-            ->find();
-    }
-
     /**
      * Return last edited members. Only from active families selected
      * @param int $limit
@@ -121,7 +106,6 @@ class DashboardService
         return PersonQuery::create()
             ->leftJoinWithFamily()
             ->where('Family.DateDeactivated is null')
-            ->filterByDateLastEdited(null)
             ->orderByDateEntered('DESC')
             ->limit($limit)
             ->find();

@@ -1,13 +1,13 @@
 {
-    "name": "ChurchCRM/CRM",
-    "version": "3.0.0",
+    "name": "churchcrm/crm",
+    "version": "4.0.3",
     "type": "project",
     "keywords": [
         "church",
         "crm"
     ],
     "homepage": "http://www.churchcrm.io",
-    "time": "2014-10-01",
+    "time": "2020-02-20 18:02:02",
     "license": "MIT",
     "authors": [
         {
@@ -17,7 +17,7 @@
         },
         {
             "name": "Charles Crossan",
-            "homepage": "http://www.ccrossan.com",
+            "homepage": "https://crossan007.dev/",
             "role": "Developer"
         }
     ],
@@ -28,13 +28,16 @@
         "source": "https://github.com/ChurchCRM/CRM",
         "docs": "https://github.com/ChurchCRM/CRM/wiki"
     },
+    "config": {
+        "platform": {
+            "php": "7.2"
+        }
+    },
     "require": {
-        "php": ">=5.6.0",
-        "mailchimp/mailchimp": "2.0.6",
+        "drewm/mailchimp-api": "^2.5",
         "slim/slim": "3.9.2",
         "slim/php-view": "2.2",
         "monolog/monolog": "^1.17",
-        "authorizenet/authorizenet": "1.9.5",
         "knplabs/github-api": "~1.4",
         "propel/propel": "~2.0@dev",
         "setasign/fpdf": "1.8.1",
@@ -46,7 +49,12 @@
         "geocoder-php/bing-maps-provider": "4.0.0",
         "mustache/mustache": "~2.5",
         "nexmo/client": "@beta",
-        "slim/http-cache": "^0.4.0"
+        "slim/http-cache": "^0.4.0",
+        "azuyalabs/yasumi": "^1.8",
+        "defuse/php-encryption": "^2.2",
+        "pragmarx/google2fa": "^6.1",
+        "endroid/qr-code": "^3.6",
+        "symfony/yaml": "^3.4"
     },
     "autoload": {
         "classmap": [

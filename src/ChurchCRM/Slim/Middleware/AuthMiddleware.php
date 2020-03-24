@@ -5,42 +5,47 @@ namespace ChurchCRM\Slim\Middleware;
 use ChurchCRM\UserQuery;
 use Slim\Http\Request;
 use Slim\Http\Response;
-use ChurchCRM\Service\SystemService;
+use ChurchCRM\dto\SystemConfig;
+use ChurchCRM\Utils\LoggerUtils;
+use ChurchCRM\Authentication\AuthenticationManager;
+use ChurchCRM\Authentication\Requests\APITokenAuthenticationRequest;
+use ChurchCRM\Authentication\AuthenticationProviders\APITokenAuthentication;
 
 class AuthMiddleware {
 
-    private $user;
-    private $apiKey;
-
     public function __invoke( Request $request, Response $response, callable $next )
     {
-        if (!$this->isPublic( $request->getUri()->getPath())) {
-            $this->apiKey = $request->getHeader("x-api-key");
-            if (!empty($this->apiKey)) {
-                $this->user = UserQuery::create()->findOneByApiKey($this->apiKey);
-
+        if (!$this->isPath( $request, "public")) {
+            $apiKey = $request->getHeader("x-api-key");
+            if (!empty($apiKey)) {
+              
+                $authenticationResult = AuthenticationManager::Authenticate(new APITokenAuthenticationRequest($apiKey[0]));
+                if (! $authenticationResult->isAuthenticated) {
+                    AuthenticationManager::EndSession(true);
+                    return $response->withStatus(401, gettext('No logged in user'));
+                }        
             }
-            if (empty($this->user)) {
-                $this->user = $_SESSION['user'];
-            } else {
-                $_SESSION['user'] = $this->user;
+            // validate the user session; however, do not update tLastOperation if the requested path is "/background"
+            // since /background operations do not connotate user activity.
+            else if (AuthenticationManager::ValidateUserSessionIsActive(!$this->isPath( $request, "background"))) {
+                // User with an active browser session is still authenticated.
+                // don't really need to do anything here... 
+            }
+            else {
+                return $response->withStatus(401, gettext('No logged in user'));
             }
 
-            if (empty($this->user)) {
-                return $response->withStatus(401)->withJson(["message" => gettext('No logged in user')]);
-            }
-
-
-            return $next( $request, $response )->withHeader( "CRM_USER_ID", $this->user->getId());
+            return $next( $request, $response )->withHeader( "CRM_USER_ID", AuthenticationManager::GetCurrentUser()->getId());
         }
         return $next( $request, $response );
     }
 
-    private function isPublic($path) {
-        $pathAry = explode("/", $path);
-        if (!empty($path) && $pathAry[0] === "public") {
+    private function isPath(Request $request, $pathPart) {
+        $pathAry = explode("/", $request->getUri()->getPath());
+        if (!empty($pathAry) && $pathAry[0] === $pathPart) {
             return true;
         }
         return false;
     }
+
 }

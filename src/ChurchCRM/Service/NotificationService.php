@@ -2,6 +2,7 @@
 
 namespace ChurchCRM\Service;
 use ChurchCRM\dto\SystemConfig;
+use ChurchCRM\Authentication\AuthenticationManager;
 
 class NotificationService
 {
@@ -11,7 +12,7 @@ class NotificationService
      *
      */
     try {
-      $TempNotificaions = json_decode(file_get_contents(SystemConfig::getValue("sCloudURL")."notifications.json" ));
+      $TempNotificaions = json_decode(file_get_contents(SystemConfig::getValue("sNotificationsURL")));
       if (isset($TempNotificaions->TTL) ) {
         $_SESSION['SystemNotifications'] = $TempNotificaions;
         $_SESSION['SystemNotifications']->expires = new \DateTime();
@@ -36,7 +37,7 @@ class NotificationService
       {
         if($message->targetVersion == $_SESSION['sSoftwareInstalledVersion'])
         {
-          if (! $message->adminOnly ||  $_SESSION['user']->isAdmin())
+          if (! $message->adminOnly ||  AuthenticationManager::GetCurrentUser()->isAdmin())
           {
             array_push($notifications, $message);
           }

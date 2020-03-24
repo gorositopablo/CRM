@@ -17,9 +17,10 @@ require 'Include/Functions.php';
 
 use ChurchCRM\dto\SystemURLs;
 use ChurchCRM\Utils\RedirectUtils;
+use ChurchCRM\Authentication\AuthenticationManager;
 
 // Security: User must have Manage Groups permission
-if (!$_SESSION['user']->isAdmin()) {
+if (!AuthenticationManager::GetCurrentUser()->isAdmin()) {
     RedirectUtils::Redirect('Menu.php');
     exit;
 }
@@ -40,6 +41,8 @@ require 'Include/Header.php';
     <form id="restoredatabase" action="<?= sRootPath ?>/api/database/restore" method="POST"
           enctype="multipart/form-data">
       <input type="file" name="restoreFile" id="restoreFile" multiple=""><br>
+      <label for="restorePassword"><?= gettext("Password (if any)") ?>:</label>
+      <input type="text" name="restorePassword" /><br/>
       <button type="submit" class="btn btn-primary"><?= gettext('Upload Files') ?></button>
     </form>
   </div>
@@ -66,7 +69,7 @@ require 'Include/Header.php';
     }
      $("#restorestatus").css("color", "orange");
     $("#restorestatus").html("<?= gettext('Restore Running, Please wait.')?>");
-    $.ajax({
+    $.ajax({ // not converting this to window.CRM.APIRequest because multipart/form-data
       url: window.CRM.root + '/api/database/restore',
       type: 'POST',
       data: formData,

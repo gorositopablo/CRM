@@ -22,12 +22,12 @@ use ChurchCRM\dto\SystemConfig;
 use ChurchCRM\UserQuery;
 use ChurchCRM\dto\SystemURLs;
 use ChurchCRM\Utils\RedirectUtils;
+use ChurchCRM\Authentication\AuthenticationManager;
 
 // Security: User must be an Admin to access this page.
 // Otherwise, re-direct them to the main menu.
-if (!$_SESSION['user']->isAdmin()) {
-    RedirectUtils::Redirect('Menu.php');
-    exit;
+if (!AuthenticationManager::GetCurrentUser()->isAdmin()) {
+    RedirectUtils::SecurityRedirect("Admin");
 }
 
 // Get all the User records
@@ -56,6 +56,7 @@ require 'Include/Header.php';
                 <th align="center"><?= gettext('Total Logins') ?></th>
                 <th align="center"><?= gettext('Failed Logins') ?></th>
                 <th align="center"><?= gettext('Password') ?></th>
+                <th align="center"><?= gettext('Two Factor Status') ?></th>
 
             </tr>
             </thead>
@@ -67,7 +68,7 @@ require 'Include/Header.php';
                                                                                    aria-hidden="true"></i></a>&nbsp;&nbsp;
                         <a href="v2/user/<?= $user->getId() ?>"><i class="fa fa-eye"
                                                                                    aria-hidden="true"></i></a>&nbsp;&nbsp;
-                        <?php if ($user->getId() != $_SESSION['user']->getId()) {
+                        <?php if ($user->getId() != AuthenticationManager::GetCurrentUser()->getId()) {
     ?>
                             <a onclick="deleteUser(<?= $user->getId() ?>, '<?= $user->getPerson()->getFullName() ?>')"><i
                                         class="fa fa-trash-o" aria-hidden="true"></i></a>
@@ -77,7 +78,7 @@ require 'Include/Header.php';
                     <td>
                         <a href="PersonView.php?PersonID=<?= $user->getId() ?>"> <?= $user->getPerson()->getFullName() ?></a>
                     </td>
-                    <td align="center"><?= $user->getLastLogin(SystemConfig::getValue('sDateFormatShort')) ?></td>
+                    <td align="center"><?= $user->getLastLogin(SystemConfig::getValue('sDateTimeFormat')) ?></td>
                     <td align="center"><?= $user->getLoginCount() ?></td>
                     <td align="center">
                         <?php if ($user->isLocked()) {
@@ -95,16 +96,25 @@ require 'Include/Header.php';
     } ?>
                     </td>
                     <td>
-                        <a href="UserPasswordChange.php?PersonID=<?= $user->getId() ?>&FromUserList=True"><i
+                        <a href="v2/user/<?= $user->getId() ?>/changePassword"><i
                                     class="fa fa-wrench" aria-hidden="true"></i></a>&nbsp;&nbsp;
-                        <?php if ($user->getId() != $_SESSION['user']->getId() && !empty($user->getEmail())) {
+                        <?php if ($user->getId() != AuthenticationManager::GetCurrentUser()->getId() && !empty($user->getEmail())) {
         ?>
                             <a onclick="resetUserPassword(<?= $user->getId() ?>, '<?= $user->getPerson()->getFullName() ?>')"><i
                                         class="fa fa-send-o" aria-hidden="true"></i></a>
                             <?php
     } ?>
                     </td>
-
+                    <td>
+                        <?= $user->is2FactorAuthEnabled() ? gettext("Enabled") : gettext("Disabled") ?>
+                        <?php
+                            if ($user->is2FactorAuthEnabled()) {
+                                ?>
+                                <a onclick="disableUserTwoFactorAuth(<?= $user->getId() ?>, '<?= $user->getPerson()->getFullName() ?>')">Disable</a>
+                            <?php
+                            }
+                        ?>
+                    </td>
                 </tr>
                 <?php
 } ?>
@@ -127,15 +137,12 @@ require 'Include/Header.php';
             '<?= gettext("Please confirm removal of user status from:") ?> <b>' + userName + '</b></p>',
             callback: function (result) {
                 if (result) {
-                    $.ajax({
-                        method: "POST",
-                        url: window.CRM.root + "/api/users/" + userId,
-                        dataType: "json",
-                        encode: true,
+                    window.CRM.APIRequest({
+                        method: "DELETE",
+                        path: "users/" + userId,
                         data: {"_METHOD": "DELETE"}
-                    }).done(function (data) {
-                        if (data.status == "success")
-                            window.location.href = window.CRM.root + "/UserList.php";
+                    }).done(function () {
+                        window.location.href = window.CRM.root + "/UserList.php";
                     });
                 }
             }
@@ -178,6 +185,24 @@ require 'Include/Header.php';
                     }).done(function (data) {
                         if (data.status == "success")
                             showGlobalMessage('<?= gettext("Password reset for") ?> ' + userName, "success");
+                    });
+                }
+            }
+        });
+    }
+
+    function disableUserTwoFactorAuth(userId, userName) {
+        bootbox.confirm({
+            title: "<?= gettext("Action Confirmation") ?>",
+            message: '<p style="color: red">' +
+            "<?= gettext("Please confirm disabling 2 Factor Auth for this user") ?>: <b>" + userName + "</b></p>",
+            callback: function (result) {
+                if (result) {
+                    $.ajax({
+                        method: "POST",
+                        url: window.CRM.root + "/api/users/" + userId + "/disableTwoFactor",
+                    }).done(function (data) {
+                        window.location.href = window.CRM.root + "/UserList.php";
                     });
                 }
             }

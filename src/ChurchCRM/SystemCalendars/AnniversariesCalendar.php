@@ -11,6 +11,10 @@ use Propel\Runtime\ActiveQuery\Criteria;
 
 class AnniversariesCalendar implements SystemCalendar {
  
+  public static function isAvailable() {
+    return true;
+  }
+  
   public function getAccessToken() {
     return false;
   }
@@ -31,7 +35,7 @@ class AnniversariesCalendar implements SystemCalendar {
     return gettext("Anniversaries");
   }
     
-  public function getEvents() {
+  public function getEvents($start,$end) {
     $families = FamilyQuery::create()
             ->filterByWeddingdate('', Criteria::NOT_EQUAL)
             ->find();
@@ -56,9 +60,7 @@ class AnniversariesCalendar implements SystemCalendar {
       $anniversary->setTitle(gettext("Anniversary").": ".$family->getFamilyString());
       $year = date('Y');
       $anniversary->setStart($year.'-'.$family->getWeddingMonth().'-'.$family->getWeddingDay());
-      $events->push(clone $anniversary);
-      $year -= 1;
-      $anniversary->setStart($year.'-'.$family->getWeddingMonth().'-'.$family->getWeddingDay());
+      $anniversary->setURL($family->getViewURI());
       $events->push($anniversary);
     }
     return $events;

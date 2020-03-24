@@ -1,12 +1,6 @@
 <?php
 
-/* Contributors Philippe Logel */
-
-// Routes
-use ChurchCRM\dto\ChurchMetaData;
 use ChurchCRM\dto\MenuEventsCount;
-use ChurchCRM\dto\Photo;
-use ChurchCRM\Emails\FamilyVerificationEmail;
 use ChurchCRM\FamilyQuery;
 use ChurchCRM\Map\FamilyTableMap;
 use ChurchCRM\Map\TokenTableMap;
@@ -15,14 +9,31 @@ use ChurchCRM\NoteQuery;
 use ChurchCRM\Person;
 use ChurchCRM\Token;
 use ChurchCRM\TokenQuery;
-use ChurchCRM\Utils\GeoUtils;
-use ChurchCRM\Utils\MiscUtils;
 use Propel\Runtime\ActiveQuery\Criteria;
+use ChurchCRM\Authentication\AuthenticationManager;
 
 $app->group('/families', function () {
-    $this->get('/{familyId:[0-9]+}', function ($request, $response, $args) {
-        $family = FamilyQuery::create()->findPk($args['familyId']);
-        return $response->withJSON($family->toJSON());
+
+    $this->get('/email/without', function ($request, $response, $args) {
+        $families = FamilyQuery::create()->joinWithPerson()->find();
+
+        $familiesWithoutEmails = [];
+        foreach ($families as $family) {
+            if (empty($family->getEmail())) {
+                $hasEmail = false;
+                foreach ($family->getPeople() as $person) {
+                    if (!empty($person->getEmail() || !empty($person->getWorkEmail()))) {
+                        $hasEmail = true;
+                        break;
+                    }
+                }
+                if (!$hasEmail) {
+                    array_push($familiesWithoutEmails, $family->toArray());
+                }
+             }
+        }
+
+        return $response->withJson(["count" => count($familiesWithoutEmails), "families" => $familiesWithoutEmails]);
     });
 
     $this->get('/numbers', function ($request, $response, $args) {
@@ -34,7 +45,7 @@ $app->group('/families', function () {
         $query = $args['query'];
         $results = [];
         $q = FamilyQuery::create()
-            ->filterByName("%$query%", Propel\Runtime\ActiveQuery\Criteria::LIKE)
+            ->filterByName("%$query%", Criteria::LIKE)
             ->limit(15)
             ->find();
         foreach ($q as $family) {
@@ -82,66 +93,6 @@ $app->group('/families', function () {
         echo $this->FinancialService->getMemberByScanString($scanString);
     });
 
-    $this->get('/{familyId:[0-9]+}/photo', function ($request, $response, $args) {
-        $res = $this->cache->withExpires($response, MiscUtils::getPhotoCacheExpirationTimestamp());
-        $photo = new Photo("Family", $args['familyId']);
-        return $res->write($photo->getPhotoBytes())->withHeader('Content-type', $photo->getPhotoContentType());
-    });
-
-    $this->get('/{familyId:[0-9]+}/thumbnail', function ($request, $response, $args) {
-
-        $res = $this->cache->withExpires($response, MiscUtils::getPhotoCacheExpirationTimestamp());
-        $photo = new Photo("Family", $args['familyId']);
-        return $res->write($photo->getThumbnailBytes())->withHeader('Content-type', $photo->getThumbnailContentType());
-    });
-
-    $this->post('/{familyId:[0-9]+}/photo', function ($request, $response, $args) {
-        $input = (object)$request->getParsedBody();
-        $family = FamilyQuery::create()->findPk($args['familyId']);
-        $family->setImageFromBase64($input->imgBase64);
-
-        $response->withJSON(array("status" => "success", "upload" => $upload));
-    });
-
-    $this->delete('/{familyId:[0-9]+}/photo', function ($request, $response, $args) {
-        $family = FamilyQuery::create()->findPk($args['familyId']);
-        return json_encode(array("status" => $family->deletePhoto()));
-    });
-
-    $this->post('/{familyId}/verify', function ($request, $response, $args) {
-        $familyId = $args["familyId"];
-        $family = FamilyQuery::create()->findPk($familyId);
-        if ($family != null) {
-            TokenQuery::create()->filterByType("verifyFamily")->filterByReferenceId($family->getId())->delete();
-            $token = new Token();
-            $token->build("verifyFamily", $family->getId());
-            $token->save();
-            $email = new FamilyVerificationEmail($family->getEmails(), $family->getName(), $token->getToken());
-            if ($email->send()) {
-                $family->createTimeLineNote("verify-link");
-                $response = $response->withStatus(200);
-            } else {
-                $this->Logger->error($email->getError());
-                throw new \Exception($email->getError());
-            }
-        } else {
-            $response = $response->withStatus(404)->getBody()->write("familyId: " . $familyId . " " . gettext("not found"));
-        }
-        return $response;
-    });
-
-    $this->post('/verify/{familyId}/now', function ($request, $response, $args) {
-        $familyId = $args["familyId"];
-        $family = FamilyQuery::create()->findPk($familyId);
-        if ($family != null) {
-            $family->verify();
-            $response = $response->withStatus(200);
-        } else {
-            $response = $response->withStatus(404)->getBody()->write("familyId: " . $familyId . " not found");
-        }
-        return $response;
-    });
-
     /**
      * Update the family status to activated or deactivated with :familyId and :status true/false.
      * Pass true to activate and false to deactivate.     *
@@ -171,7 +122,7 @@ $app->group('/families', function () {
                 $note->setText(gettext('Activated the Family'));
             }
             $note->setType('edit');
-            $note->setEntered($_SESSION['user']->getId());
+            $note->setEntered(AuthenticationManager::GetCurrentUser()->getId());
             $note->save();
         }
         return $response->withJson(['success' => true]);
@@ -179,18 +130,5 @@ $app->group('/families', function () {
     });
 
 
-    $this->get('/{familyId:[0-9]+}/geolocation', function ($request, $response, $args) {
-        $familyId = $args["familyId"];
-        $family = FamilyQuery::create()->findPk($familyId);
-        if (!empty($family)) {
-            $familyAddress = $family->getAddress();
-            $familyLatLong = GeoUtils::getLatLong($familyAddress);
 
-            $familyDrivingInfo = GeoUtils::DrivingDistanceMatrix($familyAddress, ChurchMetaData::getChurchAddress());
-            $geoLocationInfo = array_merge($familyDrivingInfo, $familyLatLong);
-
-            return $response->withJson($geoLocationInfo);
-        }
-        return $response->withStatus(404)->getBody()->write("familyId: " . $familyId . " not found");
-    });
 });

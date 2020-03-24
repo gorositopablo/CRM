@@ -18,9 +18,10 @@ use ChurchCRM\DonationFundQuery;
 use ChurchCRM\Utils\InputUtils;
 use ChurchCRM\dto\SystemURLs;
 use ChurchCRM\Utils\RedirectUtils;
+use ChurchCRM\Authentication\AuthenticationManager;
 
 // Security: user must be administrator to use this page
-if (!$_SESSION['user']->isAdmin()) {
+if (!AuthenticationManager::GetCurrentUser()->isAdmin()) {
     RedirectUtils::Redirect('Menu.php');
     exit;
 }
@@ -67,7 +68,7 @@ $donationFunds = DonationFundQuery::create()
 if (isset($_POST['SaveChanges'])) {
     for ($iFieldID = 0; $iFieldID < $donationFunds->count(); $iFieldID++) {
         $donation = $donationFunds[$iFieldID];
-        $donation->setName(InputUtils::LegacyFilterInput($_POST[$iFieldID.'name']));
+        $donation->setName(InputUtils::FilterString($_POST[$iFieldID.'name']));
         $donation->setDescription(InputUtils::LegacyFilterInput($_POST[$iFieldID.'desc']));
         $donation->setActive($_POST[$iFieldID.'active'] == 1);
         if (strlen($donation->getName()) == 0) {

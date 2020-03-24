@@ -16,6 +16,7 @@ use ChurchCRM\DepositQuery;
 use ChurchCRM\dto\SystemURLs;
 use ChurchCRM\Utils\InputUtils;
 use ChurchCRM\Utils\RedirectUtils;
+use ChurchCRM\Authentication\AuthenticationManager;
 
 $iDepositSlipID = 0;
 $thisDeposit = 0;
@@ -38,10 +39,13 @@ if ($iDepositSlipID) {
     }
 
     // Security: User must have finance permission or be the one who created this deposit
-    if (!($_SESSION['user']->isFinanceEnabled() || $_SESSION['user']->getId() == $thisDeposit->getEnteredby())) {
+    if (!(AuthenticationManager::GetCurrentUser()->isFinanceEnabled() || AuthenticationManager::GetCurrentUser()->getId() == $thisDeposit->getEnteredby())) {
         RedirectUtils::Redirect('Menu.php');
         exit;
     }
+} elseif ($iDepositSlipID == 0) {
+    RedirectUtils::Redirect('FindDepositSlip.php');
+    exit;
 } else {
     RedirectUtils::Redirect('Menu.php');
 }
@@ -59,7 +63,7 @@ if (isset($_POST['DepositSlipLoadAuthorized'])) {
 $_SESSION['iCurrentDeposit'] = $iDepositSlipID;  // Probably redundant
 
 /* @var $currentUser User */
-$currentUser = $_SESSION['user'];
+$currentUser = AuthenticationManager::GetCurrentUser();
 $currentUser->setCurrentDeposit($iDepositSlipID);
 $currentUser->save();
 
@@ -91,10 +95,10 @@ require 'Include/Header.php';
           </div>
           <div class="row p-2">
             <div class="col-lg-5 m-2" style="text-align:center">
-              <input type="submit" class="btn" value="<?php echo gettext('Save'); ?>" name="DepositSlipSubmit">
+              <input type="submit" class="btn btn-default" value="<?php echo gettext('Save'); ?>" name="DepositSlipSubmit">
             </div>
             <div class="col-lg-5 m-2" style="text-align:center">
-              <input type="button" class="btn" value="<?php echo gettext('Deposit Slip Report'); ?>" name="DepositSlipGeneratePDF" onclick="window.CRM.VerifyThenLoadAPIContent(window.CRM.root + '/api/deposits/<?php echo $thisDeposit->getId() ?>/pdf');">
+              <input type="button" class="btn btn-default" value="<?php echo gettext('Deposit Slip Report'); ?>" name="DepositSlipGeneratePDF" onclick="window.CRM.VerifyThenLoadAPIContent(window.CRM.root + '/api/deposits/<?php echo $thisDeposit->getId() ?>/pdf');">
             </div>
           </div>
           <?php
@@ -233,12 +237,9 @@ require 'Include/Header.php';
           {
             window.CRM.deletesRemaining = deletedRows.length;
             $.each(deletedRows, function(index, value) {
-              $.ajax({
-                type: 'POST', // define the type of HTTP verb we want to use (POST for our form)
-                url: window.CRM.root+'/api/payments/' + value.Groupkey, // the url where we want to POST
-                dataType: 'json', // what type of data do we expect back from the server
-                data: {"_METHOD":"DELETE"},
-                encode: true
+              window.CRM.APIRequest({
+                method: 'DELETE',
+                path: 'payments/' + value.GroupKey,
               })
               .done(function(data) {
                 dataT.rows('.selected').remove().draw(false);

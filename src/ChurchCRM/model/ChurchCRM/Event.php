@@ -25,6 +25,18 @@ class Event extends BaseEvent
     $this->editable = true;
   }
   
+  public function toArray($keyType = TableMap::TYPE_PHPNAME, $includeLazyLoadColumns = true, $alreadyDumpedObjects = array(), $includeForeignObjects = false)
+  {
+    
+    $array = parent::toArray($keyType, $includeLazyLoadColumns, $alreadyDumpedObjects, $includeForeignObjects);
+    $array['PinnedCalendars'] = array_map('intval',Base\CalendarEventQuery::create() 
+            ->filterByEventId($this->getId())
+            ->select(Map\CalendarEventTableMap::COL_CALENDAR_ID)
+            ->find()->toArray());
+    return $array;
+    
+  }
+  
   public function isEditable()
   {
     return $this->editable;
@@ -68,11 +80,8 @@ class Event extends BaseEvent
     
   }
   
-  public function getEventURI()
+  public function getViewURI()
   {
-    if($_SESSION['bAddEvent'])
-      return SystemURLs::getRootPath()."EventEditor.php?calendarAction=".$this->getID();
-    else 
-      return '';
+    return SystemURLs::getRootPath()."/EventEditor.php?calendarAction=".$this->getID();
   }
 }
