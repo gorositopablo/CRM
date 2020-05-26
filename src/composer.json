@@ -1,13 +1,13 @@
 {
     "name": "churchcrm/crm",
-    "version": "4.0.3",
+    "version": "4.0.5",
     "type": "project",
     "keywords": [
         "church",
         "crm"
     ],
     "homepage": "http://www.churchcrm.io",
-    "time": "2020-02-20 18:02:02",
+    "time": "2020-05-21 02:05:56",
     "license": "MIT",
     "authors": [
         {
@@ -54,7 +54,8 @@
         "defuse/php-encryption": "^2.2",
         "pragmarx/google2fa": "^6.1",
         "endroid/qr-code": "^3.6",
-        "symfony/yaml": "^3.4"
+        "symfony/yaml": "^3.4",
+        "symfony/translation": "^4.4"
     },
     "autoload": {
         "classmap": [
